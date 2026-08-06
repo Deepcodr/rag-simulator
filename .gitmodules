@@ -1,0 +1,6 @@
+[submodule "render-embedding-service"]
+	path = render-embedding-service
+	url = https://github.com/Deepcodr/render-embedding-service
+[submodule "modal-llm-service"]
+	path = modal-llm-service
+	url = https://github.com/Deepcodr/modal-llm-service
