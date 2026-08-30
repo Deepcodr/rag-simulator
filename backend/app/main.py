@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import documents, chunks, indexing, search, generation
+from app.routers import documents, chunks, indexing, search, generation, workflow
 
 app = FastAPI(title="RAG Simulation API", version="1.0.0")
 
@@ -19,6 +19,7 @@ app.include_router(chunks.router)
 app.include_router(indexing.router)
 app.include_router(search.router)
 app.include_router(generation.router)
+app.include_router(workflow.router)
 
 
 @app.get("/api/health")
