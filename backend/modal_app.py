@@ -22,13 +22,15 @@ app = modal.App("rag-sim-api", image=image)
 
 @app.function(
     min_containers=1,
-    timeout=120,
+    max_containers=1,
+    timeout=3600,
     # Create with:
     # modal secret create rag-sim-secrets \
     #   EMBEDDING_URL=... EMBEDDING_API_KEY=... MODAL_LLM_URL_GEMMA2=... \
     #   MODAL_TOKEN_ID=wk-... MODAL_TOKEN_SECRET=ws-...
     secrets=[modal.Secret.from_name("rag-sim-secrets")],
 )
+@modal.concurrent(max_inputs=20)
 @modal.asgi_app()
 def fastapi_app():
     from app.main import app as web_app
