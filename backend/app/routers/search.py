@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
@@ -6,11 +7,12 @@ from app.schemas import SearchRequest, SearchResponse, SearchResult, VectorPoint
 from app.services.embedding_client import embed_texts
 from app.services.vector_store import cosine_similarity, top_k_indices
 from app.services.dim_reduction import project_query_2d
+from app.services.workflow import tracer
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
 
-async def run_search(session_id: str, query: str, top_k: int):
+async def run_search(session_id: str, query: str, top_k: int, trace=None):
     session = store.get(session_id)
     embeddings = session.get("embeddings")
     chunks = session["chunks"]
@@ -19,9 +21,21 @@ async def run_search(session_id: str, query: str, top_k: int):
     if embeddings is None or not chunks:
         raise HTTPException(400, "No index built yet. Run the indexing step first.")
 
-    query_vec = (await embed_texts([query]))[0]
+    own_trace = trace is None
+    if own_trace:
+        trace = tracer.start_trace("USER_ACTION", "Semantic Search")
+
+    query_vec = (await embed_texts([query], trace=trace))[0]
+
+    t0 = time.perf_counter()
     scores = cosine_similarity(query_vec, embeddings)
     idxs = top_k_indices(scores, top_k)
+    dt = int((time.perf_counter() - t0) * 1000)
+    trace.step(
+        "VECTOR_SEARCH", name=f"Top-{top_k} cosine search",
+        detail=f"best score {float(scores[idxs[0]]):.3f}" if len(idxs) else "no matches",
+        duration_ms=dt, metadata={"top_k": top_k, "candidates": len(chunks)},
+    )
 
     results = [
         SearchResult(
@@ -46,6 +60,12 @@ async def run_search(session_id: str, query: str, top_k: int):
         )
         for i, c in enumerate(chunks)
     ]
+
+    if own_trace:
+        trace.step(
+            "RESPONSE", name="Search complete", duration_ms=trace.elapsed_ms(),
+            metadata={"results": len(results)},
+        )
 
     return results, query_point, all_points
 

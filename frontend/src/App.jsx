@@ -5,8 +5,10 @@ import Footer from './components/Footer'
 import FlowDiagram from './components/FlowDiagram'
 import SimulationBar from './components/SimulationBar'
 import StepPanel from './components/StepPanel'
+import SystemDesignPanel from './components/SystemDesignPanel'
 import ReactMarkdown from 'react-markdown'
 import { useRagStore, STEP_IDS, STEP_META } from './lib/store'
+import { useWorkflowStream } from './lib/useWorkflowStream'
 
 export default function App() {
   const steps = useRagStore((s) => s.steps)
@@ -14,6 +16,7 @@ export default function App() {
   const runSimulation = useRagStore((s) => s.runSimulation)
   const resetPipeline = useRagStore((s) => s.resetPipeline)
   const openStep = useRagStore((s) => s.openStep)
+  const { events, connected, clearEvents } = useWorkflowStream()
 
   const finalOutput = steps.generate.output
   const anyComplete = STEP_IDS.some((id) => steps[id].status === 'complete')
@@ -31,6 +34,8 @@ export default function App() {
         />
 
         <FlowDiagram steps={steps} onStepClick={openStep} />
+
+        <SystemDesignPanel events={events} connected={connected} onClear={clearEvents} />
 
         <AnimatePresence>
           {finalOutput && (

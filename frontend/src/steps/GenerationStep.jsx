@@ -55,6 +55,10 @@ export default function GenerationStep() {
         <Hint>
           The first generation request may take a few minutes to complete, as model containers require a warm up.
         </Hint>
+        <Hint>
+          These are small (1B–3B parameter) open-source models chosen for free hosting, not
+          frontier-scale LLMs — expect rougher, less coherent answers than GPT-4 / Claude-class models.
+        </Hint>
       </div>
 
       <div>
@@ -108,8 +112,8 @@ export default function GenerationStep() {
               </span>
             </div>
             <div className="bg-ink-900 border border-signal/40 rounded-xl p-3.5 text-sm text-mist-100 leading-relaxed prose prose-invert prose-sm max-w-none prose-p:my-2 prose-strong:text-signal prose-headings:text-mist-100 prose-li:my-0.5">
-              +              <ReactMarkdown>{output.answer}</ReactMarkdown>
-              +            </div>
+              <ReactMarkdown>{output.answer}</ReactMarkdown>
+            </div>
           </div>
         </div>
       )}

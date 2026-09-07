@@ -1,9 +1,11 @@
+import time
 from fastapi import APIRouter, HTTPException
 
 from app.state import store
 from app.schemas import IndexRequest, IndexResponse, VectorPoint
 from app.services.embedding_client import embed_texts, embedding_model_name
 from app.services.dim_reduction import project_2d
+from app.services.workflow import tracer
 
 router = APIRouter(prefix="/api/index", tags=["indexing"])
 
@@ -15,9 +17,18 @@ async def build_index(req: IndexRequest):
     if not chunks:
         raise HTTPException(400, "No chunks available. Run the chunking step first.")
 
+    trace = tracer.start_trace("USER_ACTION", "Indexing")
+
     texts = [c["text"] for c in chunks]
-    embeddings = await embed_texts(texts)
+    embeddings = await embed_texts(texts, trace=trace)
+
+    t0 = time.perf_counter()
     coords = project_2d(embeddings)
+    dt = int((time.perf_counter() - t0) * 1000)
+    trace.step(
+        "VECTOR_INDEX", name="Projected to 2D", detail="PCA",
+        duration_ms=dt, metadata={"vectors": len(embeddings)},
+    )
 
     points = [
         VectorPoint(
@@ -35,6 +46,11 @@ async def build_index(req: IndexRequest):
         embeddings=embeddings,
         points_2d=coords,
         embedding_model=embedding_model_name(),
+    )
+
+    trace.step(
+        "RESPONSE", name="Indexing complete", duration_ms=trace.elapsed_ms(),
+        metadata={"vector_dim": int(embeddings.shape[1])},
     )
 
     return IndexResponse(

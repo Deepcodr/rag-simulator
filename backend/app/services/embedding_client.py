@@ -1,5 +1,6 @@
 import hashlib
 import asyncio
+import time
 import numpy as np
 import httpx
 from app.config import settings
@@ -35,7 +36,7 @@ def _local_mock_embed(texts: list[str]) -> np.ndarray:
     return np.array(vectors)
 
 
-async def embed_texts(texts: list[str]) -> np.ndarray:
+async def embed_texts(texts: list[str], trace=None) -> np.ndarray:
     if settings.EMBEDDING_URLS and not settings.USE_LOCAL_FALLBACK:
         headers = settings.render_auth_headers()
         # Render's free tier spins down after ~15 min idle; the first
@@ -43,12 +44,30 @@ async def embed_texts(texts: list[str]) -> np.ndarray:
         # generous timeout here.
         shards = _split_into_shards(texts, len(settings.EMBEDDING_URLS))
         urls = settings.EMBEDDING_URLS[:len(shards)]
+        t0 = time.perf_counter()
         results = await asyncio.gather(
             *[_embed_shard(url, shard, headers) for url, shard in zip(urls, shards)]
         )
+        dt = int((time.perf_counter() - t0) * 1000)
         embeddings = [vec for shard_result in results for vec in shard_result]
+        if trace:
+            trace.step(
+                "EMBEDDING_CALL", name=f"Embedded {len(texts)} text(s)",
+                detail=f"Render · {len(urls)} shard(s) · {settings.EMBEDDING_MODEL_NAME}",
+                duration_ms=dt, metadata={"real": True, "shards": len(urls), "dim": len(embeddings[0]) if embeddings else 0},
+            )
         return np.array(embeddings)
-    return _local_mock_embed(texts)
+
+    t0 = time.perf_counter()
+    result = _local_mock_embed(texts)
+    dt = int((time.perf_counter() - t0) * 1000)
+    if trace:
+        trace.step(
+            "EMBEDDING_CALL", name=f"Embedded {len(texts)} text(s)",
+            detail="Local mock · hash-seeded",
+            duration_ms=dt, metadata={"real": False, "dim": LOCAL_DIM},
+        )
+    return result
 
 
 def embedding_model_name() -> str:
